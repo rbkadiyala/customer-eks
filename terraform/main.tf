@@ -31,7 +31,7 @@ locals {
   enable_vpn_gateway   = false
   encryption_type      = "AES256"
   image_tag_mutability = "IMMUTABLE"
-  prevent_destroy      = true
+
 
   # IAM Policies for the EKS Cluster
   eks_iam_policies = [
@@ -40,7 +40,7 @@ locals {
   ]
 }
 
-resource "aws_ecr_repository" "this" {
+resource "aws_ecr_repository" "my_ecr_repository" {
   name                 = local.ecr_repository_name
   image_tag_mutability = local.image_tag_mutability
   encryption_configuration {
@@ -48,7 +48,7 @@ resource "aws_ecr_repository" "this" {
   }
 
   lifecycle {
-    prevent_destroy = local.prevent_destroy
+    prevent_destroy = true
   }
 
   tags = {
