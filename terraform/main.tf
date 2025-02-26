@@ -1,18 +1,3 @@
-terraform {
-  required_version = ">= 1.3.2"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.83"
-    }
-  }
-}
-
-provider "aws" {
-  region = local.aws_region
-}
-
 locals {
   # Define all variables in the locals block
   aws_region           = "us-east-1"
@@ -47,6 +32,9 @@ locals {
   ]*/
 }
 
+provider "aws" {
+  region = local.aws_region
+}
 
 resource "aws_ecr_repository" "my_ecr_repository" {
   name                 = local.ecr_repository_name
