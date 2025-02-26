@@ -1,3 +1,13 @@
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "~> 5.0"  # Ensure compatibility with Terraform version
+    }
+  }
+  required_version = ">= 1.5.0"  # Use the latest stable Terraform version
+}
+
 locals {
   # Define all variables in the locals block
   aws_region           = "us-east-1"
