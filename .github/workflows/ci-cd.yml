@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Allows the workflow to be triggered manually from the GitHub UI     
+  workflow_dispatch:  # Allows the workflow to be triggered manually from the GitHub UI
 
 env:
   AWS_REGION: us-east-1
@@ -12,6 +12,7 @@ env:
   CONTAINER_PORT: 8080
   IMAGE_TAG: ${{ github.sha }}  # Use GitHub SHA as the tag for the image
   EKS_CLUSTER_NAME: my-eks-cluster  # EKS cluster name as an environment variable
+  ECR_REPOSITORY_URL: 761018885188.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}  # ECR repository URL
 
 jobs:
   build:
@@ -64,13 +65,7 @@ jobs:
           name: app-jar
           path: target
 
-      - name: Build Docker image
-        run: |
-          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}"
-          docker build -t $ECR_REPOSITORY_URL:${{ env.IMAGE_TAG }} .
-          docker tag $ECR_REPOSITORY_URL:${{ env.IMAGE_TAG }} $ECR_REPOSITORY_URL:${{ env.IMAGE_TAG }}
-
-      - name: Install and configure AWS CLI
+      - name: Install AWS CLI
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -q awscliv2.zip
@@ -79,22 +74,36 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region ${{ env.AWS_REGION }}
 
+      - name: Create ECR repository if not exists
+        run: |
+          REPO_NAME=${{ env.SPRING_BOOT_APP_NAME }}
+          # Check if the repository exists
+          REPO_EXISTS=$(aws ecr describe-repositories --repository-names $REPO_NAME --region ${{ env.AWS_REGION }} --query 'repositories[0].repositoryName' --output text)
+          if [ "$REPO_EXISTS" == "None" ]; then
+            echo "ECR repository does not exist. Creating a new one..."
+            aws ecr create-repository --repository-name $REPO_NAME --region ${{ env.AWS_REGION }}
+          else
+            echo "ECR repository $REPO_NAME already exists."
+          fi
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }} .
+          docker tag ${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }} ${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }}
+
       - name: Login to ECR
         run: |
-          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}"
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REPOSITORY_URL }}
 
       - name: Tag and push Docker image
         run: |
-          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}"
-          docker push $ECR_REPOSITORY_URL:${{ env.IMAGE_TAG }}
+          docker push ${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }}
 
       - name: Deploy to EKS
         run: |
           aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
           mkdir -p k8s
-          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}:${{ env.IMAGE_TAG }}"
-          export ECR_REPOSITORY_URL
+          export ECR_REPOSITORY_URL="${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }}"
           envsubst < k8s-deployment.yaml > k8s/k8s-deployment.yaml
           echo "resources:" > k8s/kustomization.yaml
           echo "- k8s-deployment.yaml" >> k8s/kustomization.yaml
