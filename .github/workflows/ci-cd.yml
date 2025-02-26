@@ -73,21 +73,10 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region ${{ secrets.AWS_REGION }}
 
-      - name: Create ECR repository if not exists
+      - name: Create repo in ECR (If it doesn't exist)
         run: |
-          REPO_NAME="${{ env.SPRING_BOOT_APP_NAME }}"
-          if [ -z "$REPO_NAME" ]; then
-            echo "Error: ECR repository name (SPRING_BOOT_APP_NAME) is not set!"
-            exit 1
-          fi
-          # Check if the repository exists
-          REPO_EXISTS=$(aws ecr describe-repositories --repository-names "$REPO_NAME" --region ${{ secrets.AWS_REGION }} --query 'repositories[0].repositoryName' --output text)
-          if [ "$REPO_EXISTS" == "None" ]; then
-            echo "ECR repository does not exist. Creating a new one..."
-            aws ecr create-repository --repository-name "$REPO_NAME" --region ${{ secrets.AWS_REGION }}
-          else
-            echo "ECR repository $REPO_NAME already exists."
-          fi
+          aws ecr describe-repositories --repository-names ${{ env.SPRING_BOOT_APP_NAME }} --region "${{ secrets.AWS_REGION }}" || aws ecr create-repository --repository-name ${{ env.SPRING_BOOT_APP_NAME }} --region "${{ secrets.AWS_REGION }}"
+
 
       - name: Build Docker image
         run: |
