@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Allows the workflow to be triggered manually from the GitHub UI     
 
 env:
   AWS_REGION: us-east-1
