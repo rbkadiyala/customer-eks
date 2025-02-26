@@ -7,11 +7,11 @@ on:
   workflow_dispatch:  # Allows the workflow to be triggered manually from the GitHub UI
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: ${{ secrets.AWS_REGION }}  # AWS region from secrets
   SPRING_BOOT_APP_NAME: my-spring-boot-app  # Spring Boot app name as an environment variable
   CONTAINER_PORT: 8080
   IMAGE_TAG: ${{ github.sha }}  # Use GitHub SHA as the tag for the image
-  EKS_CLUSTER_NAME: my-eks-cluster  # EKS cluster name as an environment variable
+  EKS_CLUSTER_NAME: my-eks-cluster  # EKS cluster name from secrets
 
 jobs:
   build:
@@ -75,7 +75,7 @@ jobs:
 
       - name: Create ECR repository if not exists
         run: |
-          REPO_NAME="${{ secrets.SPRING_BOOT_APP_NAME }}"
+          REPO_NAME="${{ env.SPRING_BOOT_APP_NAME }}"
           if [ -z "$REPO_NAME" ]; then
             echo "Error: ECR repository name (SPRING_BOOT_APP_NAME) is not set!"
             exit 1
@@ -91,25 +91,25 @@ jobs:
 
       - name: Build Docker image
         run: |
-          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.SPRING_BOOT_APP_NAME }}"
+          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}"
           docker build -t $ECR_REPOSITORY_URL:${{ github.sha }} .
           docker tag $ECR_REPOSITORY_URL:${{ github.sha }} $ECR_REPOSITORY_URL:${{ github.sha }}
 
       - name: Login to ECR
         run: |
-          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.SPRING_BOOT_APP_NAME }}"
+          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}"
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
 
       - name: Tag and push Docker image
         run: |
-          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.SPRING_BOOT_APP_NAME }}"
+          ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}"
           docker push $ECR_REPOSITORY_URL:${{ github.sha }}
 
       - name: Deploy to EKS
         run: |
-          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
           mkdir -p k8s
-          export ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.SPRING_BOOT_APP_NAME }}:${{ github.sha }}"
+          export ECR_REPOSITORY_URL="761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}:${{ github.sha }}"
           envsubst < k8s-deployment.yaml > k8s/k8s-deployment.yaml
           echo "resources:" > k8s/kustomization.yaml
           echo "- k8s-deployment.yaml" >> k8s/kustomization.yaml
