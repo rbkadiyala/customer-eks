@@ -8,6 +8,16 @@ terraform {
   required_version = ">= 1.5.0"  # Use the latest stable Terraform version
 }
 
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 3.0"
+    }
+  }
+  required_version = ">= 1.5.0"  # Use the latest stable Terraform version >= 1.5.0
+}
+
 provider "aws" {
   region = local.aws_region
 }
