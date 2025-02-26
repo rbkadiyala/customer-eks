@@ -64,7 +64,7 @@ jobs:
         run: terraform -chdir=./terraform init # Initialize Terraform configuration
 
       - name: Generate Terraform Plan
-        run: terraform -chdir=./terraform plan -out=./terraform/tfplan.out # Generate the plan and save it to the 'terraform' directory
+        run: terraform -chdir=./terraform plan -out=tfplan.out # Generate the plan and save it to the 'terraform' directory
 
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
@@ -73,7 +73,7 @@ jobs:
           path: ./terraform/tfplan.out # Upload the Terraform plan from the 'terraform' directory
 
       - name: Apply Terraform for EKS Deployment
-        run: terraform -chdir=./terraform apply -auto-approve ./terraform/tfplan.out  # Apply the plan stored in the 'terraform' directory
+        run: terraform -chdir=./terraform apply -auto-approve tfplan.out  # Apply the plan stored in the 'terraform' directory
 
 
   deploy:
