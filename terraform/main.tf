@@ -1,6 +1,3 @@
-provider "aws" {
-  region = local.region
-}
 
 # Filter out local zones, which are not currently supported 
 # with managed node groups
@@ -11,47 +8,70 @@ data "aws_availability_zones" "available" {
   }
 }
 
+# locals.tf
+
 locals {
-  project      = "demo"
-  environment  = "dev"
-  region       = "us-east-1"
-  vpc_name     = "${local.project}-vpc-${random_integer.sequence[0].result}"
-  cluster_name = "${local.project}-eks-${random_integer.sequence[0].result}"
-  
+  # General Configuration
+  project_name  = "demo"
+  environment   = "dev"
+  region        = "us-east-1"
+  app_name      = "payroll"
+
+  # VPC and Cluster Names
+  vpc_name      = "${local.project_name}-vpc"
+  cluster_name  = "${local.project_name}-eks-cluster" 
+
+  # GitHub Repo and Other Resources
+  github_repo   = "github.com/demo/repo"
+
+  # Subnets Configuration
+  cidr          = "10.0.0.0/16"
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  public_subnets  = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+
+  # EKS Cluster Settings
+  cluster_version                = "1.31"
+  cluster_endpoint_public_access = true
+  enable_cluster_creator_admin_permissions = true
+
+  # NAT Gateway Settings
+  enable_nat_gateway             = true
+  single_nat_gateway             = true
+  enable_dns_hostnames           = true
+
+  # Node Group Configuration
+  instance_type                  = "t3.small"
+  min_size                       = 1
+  max_size                       = 2
+  desired_size                   = 1
+
+  # AMI Type for EKS Node Group
+  ami_type                       = var.ami_type  # Referencing the variable
+
+  # Tags
   tags = {
-    Project     = local.project
-    Environment = local.environment
-    Cluster     = local.cluster_name
+    Project      = local.project_name
+    Environment  = local.environment
+    Application  = local.app_name
+    GithubRepo   = local.github_repo
   }
-}
-
-variable "sequence_count" {
-  description = "Number of sequence IDs to generate"
-  type        = number
-  default     = 5
-}
-
-resource "random_integer" "sequence" {
-  count   = var.sequence_count
-  min     = 1
-  max     = 1000000
 }
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "5.8.1"
+  version = "~> 5.0"
 
   name = local.vpc_name
 
-  cidr = "10.0.0.0/16"
+  cidr = local.cidr
   azs  = slice(data.aws_availability_zones.available.names, 0, 3)
 
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  public_subnets  = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+  private_subnets = local.private_subnets
+  public_subnets  = local.public_subnets
 
-  enable_nat_gateway   = true
-  single_nat_gateway   = true
-  enable_dns_hostnames = true
+  enable_nat_gateway   = local.enable_nat_gateway
+  single_nat_gateway   = local.single_nat_gateway
+  enable_dns_hostnames = local.enable_dns_hostnames
 
   public_subnet_tags = {
     "kubernetes.io/role/elb" = 1
@@ -64,13 +84,13 @@ module "vpc" {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.8.5"
+  version = "~> 20.0"
 
   cluster_name    = local.cluster_name
-  cluster_version = "1.31"
+  cluster_version = local.cluster_version
 
-  cluster_endpoint_public_access           = true
-  enable_cluster_creator_admin_permissions = true
+  cluster_endpoint_public_access           = local.cluster_endpoint_public_access
+  enable_cluster_creator_admin_permissions = local.enable_cluster_creator_admin_permissions
 
   cluster_addons = {
     aws-ebs-csi-driver = {
@@ -82,23 +102,21 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
   eks_managed_node_group_defaults = {
-    ami_type = "AL2_x86_64"
-
+    ami_type = local.ami_type  # Using the local reference of the ami_type
   }
 
   eks_managed_node_groups = {
     two = {
       name = "node-group-2"
 
-      instance_types = ["t3.small"]
+      instance_types = [local.instance_type]
 
-      min_size     = 1
-      max_size     = 2
-      desired_size = 1
+      min_size     = local.min_size
+      max_size     = local.max_size
+      desired_size = local.desired_size
     }
   }
 }
-
 
 # https://aws.amazon.com/blogs/containers/amazon-ebs-csi-driver-is-now-generally-available-in-amazon-eks-add-ons/ 
 data "aws_iam_policy" "ebs_csi_policy" {
