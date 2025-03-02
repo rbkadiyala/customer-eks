@@ -128,8 +128,42 @@ module "irsa-ebs-csi" {
   version = "5.39.0"
 
   create_role                   = true
-  role_name                     = "AmazonEKSTFEBSCSIRole-${module.eks.cluster_name}"
+  role_name                     = "AmazonEKSTFEBSCSIRole-${module.eks.project_name}"
   provider_url                  = module.eks.oidc_provider
   role_policy_arns              = [data.aws_iam_policy.ebs_csi_policy.arn]
   oidc_fully_qualified_subjects = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
+}
+
+data "aws_kms_alias" "existing_alias" {
+  alias_name = "alias/eks/${local.project_name}-eks-cluster"
+}
+
+resource "aws_kms_alias" "eks_key_alias" {
+  count         = length(data.aws_kms_alias.existing_alias.id) == 0 ? 1 : 0
+  alias_name    = "alias/eks/${local.project_name}-eks-cluster"
+  target_key_id = aws_kms_key.eks_key.id
+}
+
+data "aws_iam_role" "existing_role" {
+  name = "AmazonEKSTFEBSCSIRole-${local.project_name}-eks-cluster"
+}
+
+resource "aws_iam_role" "eks_role" {
+  count = length(data.aws_iam_role.existing_role.id) == 0 ? 1 : 0
+
+  name               = "AmazonEKSTFEBSCSIRole-${local.project_name}-eks-cluster"
+  assume_role_policy = <<POLICY
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Action": "sts:AssumeRole",
+        "Effect": "Allow",
+        "Principal": {
+          "Service": "eks.amazonaws.com"
+        }
+      }
+    ]
+  }
+  POLICY
 }

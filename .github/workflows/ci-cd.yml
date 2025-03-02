@@ -121,20 +121,34 @@ jobs:
         with:
           terraform_version: "1.5.0"  # Specify Terraform version to use
 
-      - name: Initialize Terraform
-        run: terraform -chdir=./terraform init # Initialize Terraform configuration
-
-      - name: Generate Terraform Plan
-        run: terraform -chdir=./terraform plan -out=tfplan.out # Generate the plan and save it to the 'terraform' directory
-
-      - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v4
+      - name: Download terraform plan if exists
+        uses: actions/download-artifact@v4
         with:
           name: terraform-plan
-          path: ./terraform/tfplan.out # Upload the Terraform plan from the 'terraform' directory
+          path: ./terraform/
 
-      - name: Apply Terraform for EKS Deployment
-        run: terraform -chdir=./terraform apply -auto-approve tfplan.out  # Apply the plan stored in the 'terraform' directory
+      - name: Check if terraform plan exists
+        id: plan_check
+        run: |
+          if [ -f ./terraform/${{ env.EKS_CLUSTER_NAME }}-plan.out ]; then
+            echo "Terraform plan exists."
+            echo "PLAN_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "Terraform plan does not exist."
+            echo "PLAN_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Generate and Apply Terraform Plan (if no plan exists)
+        if: env.PLAN_EXISTS == 'false'
+        run: |
+          terraform -chdir=./terraform plan -out="./terraform/${{ env.EKS_CLUSTER_NAME }}-plan.out" # Generate the plan and save it to the 'terraform' directory
+          terraform -chdir=./terraform apply -auto-approve "./terraform/${{ env.EKS_CLUSTER_NAME }}-plan.out"  # Apply the plan
+
+      - name: Apply Terraform Plan (if plan exists)
+        if: env.PLAN_EXISTS == 'true'
+        run: |
+          terraform -chdir=./terraform apply -auto-approve "./terraform/${{ env.EKS_CLUSTER_NAME }}-plan.out"  # Apply the existing plan
+
 
   app-deploy:
     needs: infra-build

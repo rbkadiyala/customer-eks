@@ -1,7 +1,7 @@
 # terraform.tfvars
 
 region                        = "us-east-1"
-project_name                  = "demo"
+project_name                  = "example"
 environment                   = "dev"
 app_name                      = "payroll"
 cidr                          = "10.0.0.0/16"
