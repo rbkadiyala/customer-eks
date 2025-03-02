@@ -121,12 +121,6 @@ jobs:
         with:
           terraform_version: "1.5.0"  # Specify Terraform version to use
 
-      - name: Download terraform plan if exists
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-plan
-          path: ./terraform/
-
       - name: Check if terraform plan exists
         id: plan_check
         run: |
