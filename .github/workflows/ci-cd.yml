@@ -125,27 +125,12 @@ jobs:
         run: terraform -chdir=./terraform init  # Initialize the Terraform working directory and install plugins
 
       - name: Set PLAN_FILE as Environment Variable
-        run: echo "PLAN_FILE=./terraform/${{ env.EKS_CLUSTER_NAME }}-plan-${{ env.PROJECT_NAME }}.out" >> $GITHUB_ENV  # Set the PLAN_FILE dynamically
-
-      - name: Check if terraform plan exists
-        id: plan_check
-        run: |
-          # Use the PLAN_FILE environment variable to check if the plan exists
-          if [ -f "$PLAN_FILE" ]; then
-            echo "Terraform plan exists: $PLAN_FILE"
-            echo "PLAN_EXISTS=true" >> $GITHUB_ENV
-          else
-            echo "Terraform plan does not exist: $PLAN_FILE"
-            echo "PLAN_EXISTS=false" >> $GITHUB_ENV
-          fi
-
-      - name: Generate and Apply Terraform Plan (if no plan exists)
-        if: env.PLAN_EXISTS == 'false'
+        run: echo "PLAN_FILE=./terraform/${{ env.EKS_CLUSTER_NAME }}plan.out" 
+        
+      - name: Generate Terraform Plan 
         run: |
           echo "Generating Terraform Plan..."
           terraform -chdir=./terraform plan -out="$PLAN_FILE"  # Generate the plan and save it          
-          terraform -chdir=./terraform apply -auto-approve "$PLAN_FILE"  # Apply the plan
-
 
       - name: Apply Terraform Plan (if plan exists)
         if: env.PLAN_EXISTS == 'true'
