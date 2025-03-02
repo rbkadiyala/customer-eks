@@ -143,15 +143,9 @@ jobs:
         if: env.PLAN_EXISTS == 'false'
         run: |
           echo "Generating Terraform Plan..."
-          terraform -chdir=./terraform plan -out="$PLAN_FILE"  # Generate the plan and save it
-          
-          if [ -f "$PLAN_FILE" ]; then
-            echo "Terraform plan generated successfully: $PLAN_FILE"
-            terraform -chdir=./terraform apply -auto-approve "$PLAN_FILE"  # Apply the plan
-          else
-            echo "Error: Terraform plan was not generated for $PLAN_FILE."
-            exit 1  # Fail the step if the plan is not generated
-          fi
+          terraform -chdir=./terraform plan -out="$PLAN_FILE"  # Generate the plan and save it          
+          terraform -chdir=./terraform apply -auto-approve "$PLAN_FILE"  # Apply the plan
+
 
       - name: Apply Terraform Plan (if plan exists)
         if: env.PLAN_EXISTS == 'true'
