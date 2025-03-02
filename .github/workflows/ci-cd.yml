@@ -1,4 +1,4 @@
-#CI/CD:
+# CI/CD Workflow
 
 on:
   push:
@@ -12,8 +12,8 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS secret access key from secrets
   PROJECT_NAME: ${{ secrets.PROJECT_NAME }}  # Project name as an environment variable
   SPRING_BOOT_APP_NAME: ${{ secrets.SPRING_BOOT_APP_NAME }}  # Spring Boot app name as an environment variable
-  CONTAINER_PORT: ${{ secrets.CONTAINER_PORT }} # Port from secrets
-  IMAGE_TAG: latest #${{ github.sha }}  # Use GitHub SHA as the tag for the image
+  CONTAINER_PORT: ${{ secrets.CONTAINER_PORT }}  # Port from secrets
+  IMAGE_TAG: latest  # Use GitHub SHA as the tag for the image (e.g., ${{ github.sha }})
   EKS_CLUSTER_NAME: ${{ secrets.PROJECT_NAME }}-eks-cluster
   ECR_REPOSITORY_URL: "761018885188.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.SPRING_BOOT_APP_NAME }}"  # ECR repository URL
 
@@ -125,50 +125,49 @@ jobs:
         run: terraform -chdir=./terraform init  # Initialize the Terraform working directory and install plugins
 
       - name: Set PLAN_FILE as Environment Variable
-        run: echo "PLAN_FILE=./terraform/${{ env.EKS_CLUSTER_NAME }}plan.out" 
-        
-      - name: Generate Terraform Plan 
+        run: echo "PLAN_FILE=./terraform/${{ env.EKS_CLUSTER_NAME }}plan.out"
+
+      - name: Generate Terraform Plan
         run: |
           echo "Generating Terraform Plan..."
-          terraform -chdir=./terraform plan -out="$PLAN_FILE"  # Generate the plan and save it          
+          terraform -chdir=./terraform plan -out="$PLAN_FILE"  # Generate the plan and save it
 
       - name: Apply Terraform Plan
         run: |
           echo "Applying existing Terraform plan: $PLAN_FILE"
           terraform -chdir=./terraform apply -auto-approve "$PLAN_FILE"  # Apply the existing plan
 
-app-deploy:
-  needs: infra-build
-  runs-on: ubuntu-latest
-  environment: production
+  app-deploy:
+    needs: infra-build
+    runs-on: ubuntu-latest
+    environment: production
 
-  steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Configure AWS Credentials for kubectl
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Configure AWS Credentials for kubectl
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Update kubeconfig to access EKS cluster
-      run: |
-        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+      - name: Update kubeconfig to access EKS cluster
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
-    - name: Prepare Kubernetes manifests
-      run: |
-        mkdir -p k8s  # Create k8s directory if it doesn't exist
-        export ECR_REPOSITORY_URL="${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }}"  # Set image URL with tag
-        envsubst < k8s-deployment.yaml > k8s/k8s-deployment.yaml  # Substitute env variables into the k8s deployment YAML
+      - name: Prepare Kubernetes manifests
+        run: |
+          mkdir -p k8s  # Create k8s directory if it doesn't exist
+          export ECR_REPOSITORY_URL="${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }}"  # Set image URL with tag
+          envsubst < k8s-deployment.yaml > k8s/k8s-deployment.yaml  # Substitute env variables into the k8s deployment YAML
 
-    - name: Generate Kustomization file
-      run: |
-        echo "resources:" > k8s/kustomization.yaml  # Create kustomization file
-        echo "- k8s-deployment.yaml" >> k8s/kustomization.yaml  # Add deployment file reference
+      - name: Generate Kustomization file
+        run: |
+          echo "resources:" > k8s/kustomization.yaml  # Create kustomization file
+          echo "- k8s-deployment.yaml" >> k8s/kustomization.yaml  # Add deployment file reference
 
-    - name: Apply Kubernetes deployment using kubectl
-      run: |
-        kubectl kustomize k8s | kubectl apply -f - --force  # Apply the k8s configuration with force to ensure it's up-to-date
-
+      - name: Apply Kubernetes deployment using kubectl
+        run: |
+          kubectl kustomize k8s | kubectl apply -f - --force  # Apply the k8s configuration with force to ensure it's up-to-date
