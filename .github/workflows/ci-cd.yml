@@ -99,7 +99,7 @@ jobs:
 
 
   app-deploy:
-    needs: infra-build
+    needs: image-build
     runs-on: ubuntu-latest
     environment: production
 
