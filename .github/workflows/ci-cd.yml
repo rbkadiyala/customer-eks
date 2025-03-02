@@ -91,7 +91,7 @@ jobs:
 
       - name: Tag Docker image
         run: |
-          docker tag ${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }}
+          docker tag ${{ env.ECR_REPOSITORY_URL }}:${{ env.IMAGE_TAG }} 761018885188.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SPRING_BOOT_APP_NAME }}:latest
 
       - name: Push Docker image
         run: |
