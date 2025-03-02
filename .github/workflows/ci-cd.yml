@@ -132,8 +132,7 @@ jobs:
           echo "Generating Terraform Plan..."
           terraform -chdir=./terraform plan -out="$PLAN_FILE"  # Generate the plan and save it          
 
-      - name: Apply Terraform Plan (if plan exists)
-        if: env.PLAN_EXISTS == 'true'
+      - name: Apply Terraform Plan
         run: |
           echo "Applying existing Terraform plan: $PLAN_FILE"
           terraform -chdir=./terraform apply -auto-approve "$PLAN_FILE"  # Apply the existing plan
