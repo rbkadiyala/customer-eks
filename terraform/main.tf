@@ -135,7 +135,7 @@ module "irsa-ebs-csi" {
 }
 
 data "aws_kms_alias" "existing_alias" {
-  alias_name = "alias/eks/${local.project_name}-eks-cluster"
+  name = "alias/eks/${local.project_name}-eks-cluster"
 }
 
 resource "aws_kms_alias" "eks_key_alias" {
